@@ -5,14 +5,17 @@ A tiny **top-down stealth** demo: sneak out of jail without being seen.
 ## Play
 
 1. You start in the top-left cell
-2. Guards patrol corridors with **yellow vision cones**
-3. Duck behind **crates** (tap **Hide** / E / Space) to break line of sight
-4. Reach the **door** in the top-right to escape
-5. Get spotted → restart (tap **Restart** / R)
+2. Guards patrol with **yellow vision cones** (orange while investigating noise)
+3. **Walk** normally → big **blue noise ring**; nearby guards hear you and rush toward the sound
+4. Hold **Sneak** → slower, quieter footsteps (tiny ring) so you can slip past
+5. Duck behind **crates** (tap **Hide**) to break line of sight
+6. Reach the **door** in the top-right to escape
+7. Get spotted → restart (tap **Restart** / R)
 
 ## Controls
 
 - **WASD / arrows** or on-screen d-pad
+- **Hold Shift / Sneak** to move quietly
 - **E / Space / Hide** near a crate to crouch
 - Mobile-first portrait canvas (**480×800**)
 

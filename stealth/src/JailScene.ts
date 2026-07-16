@@ -3,6 +3,7 @@ import {
   createGuard,
   drawVisionCone,
   hasLineOfSight,
+  hearNoise,
   inVisionCone,
   updateGuard,
   type Guard,
@@ -11,7 +12,10 @@ import { createMobileControls, type MobileControls } from "./MobileControls";
 import {
   GAME_H,
   GAME_W,
+  HEARING,
   MAP_ROWS,
+  NOISE,
+  SNEAK_SPEED,
   SPEED,
   TILE,
   TILE_SCALE,
@@ -32,10 +36,15 @@ export class JailScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys?: Record<string, Phaser.Input.Keyboard.Key>;
   private status!: Phaser.GameObjects.Text;
+  private modeLabel!: Phaser.GameObjects.Text;
   private banner!: Phaser.GameObjects.Text;
+  private noiseRing!: Phaser.GameObjects.Graphics;
   private hiding = false;
+  private sneaking = false;
   private nearCrate = false;
   private ended = false;
+  private moving = false;
+  private noiseRadius = 0;
   private playerStart = { x: TILE * 1.5, y: TILE * 1.5 };
 
   constructor() {
@@ -54,6 +63,9 @@ export class JailScene extends Phaser.Scene {
   create() {
     this.ended = false;
     this.hiding = false;
+    this.sneaking = false;
+    this.moving = false;
+    this.noiseRadius = 0;
     this.guards = [];
     this.blocked.clear();
 
@@ -98,6 +110,8 @@ export class JailScene extends Phaser.Scene {
 
     this.exit = this.add.image(exitPos.x, exitPos.y, "door").setScale(TILE_SCALE).setDepth(2);
 
+    this.noiseRing = this.add.graphics().setDepth(1.5);
+
     this.player = this.physics.add.image(this.playerStart.x, this.playerStart.y, "player");
     this.player.setScale(TILE_SCALE);
     this.player.setDepth(6);
@@ -107,7 +121,6 @@ export class JailScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.walls);
     this.physics.add.collider(this.player, this.crates);
 
-    // Horizontal patrols through corridor gaps near each spawn
     for (const spawn of guardSpawns) {
       const left = this.findOpenAlongRow(spawn.row, spawn.col, -1);
       const right = this.findOpenAlongRow(spawn.row, spawn.col, 1);
@@ -122,7 +135,7 @@ export class JailScene extends Phaser.Scene {
     }
 
     this.status = this.add
-      .text(12, GAME_H - 28, "Sneak to the exit · avoid the yellow cones", {
+      .text(12, GAME_H - 28, "Hold Sneak to stay quiet · walking makes noise", {
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
         fontSize: "13px",
         color: "#e8dcc8",
@@ -136,6 +149,16 @@ export class JailScene extends Phaser.Scene {
         fontSize: "16px",
         color: "#e8dcc8",
       })
+      .setScrollFactor(0)
+      .setDepth(20);
+
+    this.modeLabel = this.add
+      .text(GAME_W - 12, 10, "WALK", {
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        fontSize: "14px",
+        color: "#88ccee",
+      })
+      .setOrigin(1, 0)
       .setScrollFactor(0)
       .setDepth(20);
 
@@ -163,6 +186,7 @@ export class JailScene extends Phaser.Scene {
         e: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
         space: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
         r: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R),
+        shift: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
       };
     }
 
@@ -207,9 +231,21 @@ export class JailScene extends Phaser.Scene {
     return best;
   }
 
+  private drawNoiseRing() {
+    this.noiseRing.clear();
+    if (this.noiseRadius <= 4 || this.hiding) return;
+
+    const loud = this.noiseRadius > NOISE.sneak + 10;
+    this.noiseRing.lineStyle(2, NOISE.color, loud ? 0.55 : 0.3);
+    this.noiseRing.strokeCircle(this.player.x, this.player.y, this.noiseRadius);
+    this.noiseRing.fillStyle(NOISE.color, loud ? 0.08 : 0.04);
+    this.noiseRing.fillCircle(this.player.x, this.player.y, this.noiseRadius);
+  }
+
   private endGame(won: boolean) {
     this.ended = true;
     this.player.setVelocity(0, 0);
+    this.noiseRing.clear();
     for (const g of this.guards) {
       g.sprite.setVelocity(0, 0);
       g.alert = !won;
@@ -221,9 +257,10 @@ export class JailScene extends Phaser.Scene {
     this.touch.setActionLabel("Restart");
     this.touch.showDpad(false);
     this.status.setText(won ? "Freedom." : "The guards spotted you.");
+    this.modeLabel.setText("");
   }
 
-  update(_time: number, delta: number) {
+  update(time: number, _delta: number) {
     const keyConfirm =
       !!this.keys &&
       (Phaser.Input.Keyboard.JustDown(this.keys.e) ||
@@ -236,6 +273,9 @@ export class JailScene extends Phaser.Scene {
       return;
     }
 
+    this.sneaking = !!(this.keys?.shift.isDown || this.touch.sneak);
+    this.touch.setSneakActive(this.sneaking);
+
     this.nearCrate = this.nearestCrateDist() < 52;
     if (confirm && this.nearCrate) {
       this.hiding = !this.hiding;
@@ -246,10 +286,13 @@ export class JailScene extends Phaser.Scene {
     if (this.hiding) {
       this.player.setVelocity(0, 0);
       this.player.setAlpha(0.35);
+      this.moving = false;
+      this.noiseRadius = NOISE.idle;
       this.touch.setActionLabel("Leave");
-      this.status.setText("Hiding behind a crate…");
+      this.status.setText("Hiding behind a crate… silent");
+      this.modeLabel.setText("HIDE").setColor("#aaaaaa");
     } else {
-      this.player.setAlpha(1);
+      this.player.setAlpha(this.sneaking ? 0.85 : 1);
       this.touch.setActionLabel(this.nearCrate ? "Hide" : "…");
 
       let vx = 0;
@@ -258,15 +301,55 @@ export class JailScene extends Phaser.Scene {
       if (this.cursors?.right.isDown || this.keys?.d.isDown || this.touch.right) vx += 1;
       if (this.cursors?.up.isDown || this.keys?.w.isDown || this.touch.up) vy -= 1;
       if (this.cursors?.down.isDown || this.keys?.s.isDown || this.touch.down) vy += 1;
-      const len = Math.hypot(vx, vy) || 1;
-      this.player.setVelocity((vx / len) * SPEED, (vy / len) * SPEED);
+      const len = Math.hypot(vx, vy);
+      this.moving = len > 0;
+      if (this.moving) {
+        const speed = this.sneaking ? SNEAK_SPEED : SPEED;
+        this.player.setVelocity((vx / len) * speed, (vy / len) * speed);
+        this.noiseRadius = this.sneaking ? NOISE.sneak : NOISE.walk;
+      } else {
+        this.player.setVelocity(0, 0);
+        this.noiseRadius = NOISE.idle;
+      }
 
-      if (this.nearCrate) this.status.setText("Near a crate — tap Hide");
-      else this.status.setText("Sneak to the exit · avoid the yellow cones");
+      if (this.sneaking) {
+        this.modeLabel.setText("SNEAK").setColor("#7bd389");
+        this.status.setText(
+          this.nearCrate
+            ? "Sneaking · near crate — tap Hide"
+            : "Sneaking — quiet footsteps",
+        );
+      } else {
+        this.modeLabel.setText(this.moving ? "WALK" : "IDLE").setColor("#88ccee");
+        this.status.setText(
+          this.moving
+            ? "Walking — loud! Guards can hear the blue ring"
+            : this.nearCrate
+              ? "Near a crate — tap Hide"
+              : "Hold Sneak (Shift) to stay quiet",
+        );
+      }
+    }
+
+    this.drawNoiseRing();
+
+    // Hearing: if a guard is inside the noise circle, they investigate toward you (faster)
+    if (this.noiseRadius > 0 && !this.hiding) {
+      for (const guard of this.guards) {
+        const dist = Phaser.Math.Distance.Between(
+          guard.sprite.x,
+          guard.sprite.y,
+          this.player.x,
+          this.player.y,
+        );
+        if (dist <= this.noiseRadius + HEARING.margin) {
+          hearNoise(guard, this.player.x, this.player.y, time, HEARING.investigateMs);
+        }
+      }
     }
 
     for (const guard of this.guards) {
-      updateGuard(guard, delta);
+      updateGuard(guard, time);
       const spotted =
         !this.hiding &&
         inVisionCone(guard, this.player.x, this.player.y) &&

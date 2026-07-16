@@ -1,5 +1,10 @@
 import Phaser from "phaser";
-import { GUARD_SPEED, TILE, VISION } from "./gameConfig";
+import {
+  GUARD_INVESTIGATE_SPEED,
+  GUARD_SPEED,
+  TILE,
+  VISION,
+} from "./gameConfig";
 
 export type Guard = {
   sprite: Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
@@ -8,6 +13,10 @@ export type Guard = {
   waypointIndex: number;
   facing: number; // radians
   alert: boolean;
+  /** Chasing a heard footstep */
+  investigating: boolean;
+  investigateUntil: number;
+  investigateTarget: { x: number; y: number } | null;
 };
 
 export function createGuard(
@@ -32,10 +41,48 @@ export function createGuard(
     waypointIndex: 0,
     facing: Math.PI / 2, // down
     alert: false,
+    investigating: false,
+    investigateUntil: 0,
+    investigateTarget: null,
   };
 }
 
-export function updateGuard(guard: Guard, dt: number) {
+/** Start (or refresh) an investigate toward a noise source. */
+export function hearNoise(
+  guard: Guard,
+  noiseX: number,
+  noiseY: number,
+  now: number,
+  durationMs: number,
+) {
+  guard.investigating = true;
+  guard.investigateUntil = now + durationMs;
+  guard.investigateTarget = { x: noiseX, y: noiseY };
+}
+
+export function updateGuard(guard: Guard, now: number) {
+  if (guard.investigating) {
+    if (now >= guard.investigateUntil || !guard.investigateTarget) {
+      guard.investigating = false;
+      guard.investigateTarget = null;
+    } else {
+      const target = guard.investigateTarget;
+      const dx = target.x - guard.sprite.x;
+      const dy = target.y - guard.sprite.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 10) {
+        // Arrived at noise — look around briefly, then resume patrol when timer ends
+        guard.sprite.setVelocity(0, 0);
+      } else {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        guard.sprite.setVelocity(nx * GUARD_INVESTIGATE_SPEED, ny * GUARD_INVESTIGATE_SPEED);
+        guard.facing = Math.atan2(ny, nx);
+      }
+      return;
+    }
+  }
+
   const target = guard.waypoints[guard.waypointIndex]!;
   const dx = target.x - guard.sprite.x;
   const dy = target.y - guard.sprite.y;
@@ -50,9 +97,6 @@ export function updateGuard(guard: Guard, dt: number) {
     guard.sprite.setVelocity(nx * GUARD_SPEED, ny * GUARD_SPEED);
     guard.facing = Math.atan2(ny, nx);
   }
-
-  // slight smoothing when idle at a point
-  void dt;
 }
 
 export function drawVisionCone(guard: Guard) {
@@ -61,10 +105,15 @@ export function drawVisionCone(guard: Guard) {
 
   const range = VISION.range;
   const half = Phaser.Math.DegToRad(VISION.halfAngleDeg);
-  const color = guard.alert ? VISION.alertColor : VISION.color;
+  const suspicious = guard.investigating;
+  const color = guard.alert
+    ? VISION.alertColor
+    : suspicious
+      ? 0xff9933
+      : VISION.color;
 
-  g.fillStyle(color, guard.alert ? 0.35 : 0.18);
-  g.lineStyle(1, color, guard.alert ? 0.9 : 0.45);
+  g.fillStyle(color, guard.alert ? 0.35 : suspicious ? 0.28 : 0.18);
+  g.lineStyle(1, color, guard.alert ? 0.9 : suspicious ? 0.75 : 0.45);
   g.beginPath();
   g.moveTo(guard.sprite.x, guard.sprite.y);
   g.arc(
@@ -88,7 +137,7 @@ export function inVisionCone(guard: Guard, px: number, py: number): boolean {
   if (dist > VISION.range || dist < 1) return dist <= 18; // very close = spotted
 
   const angle = Math.atan2(dy, dx);
-  let delta = Phaser.Math.Angle.Wrap(angle - guard.facing);
+  const delta = Phaser.Math.Angle.Wrap(angle - guard.facing);
   return Math.abs(delta) <= Phaser.Math.DegToRad(VISION.halfAngleDeg);
 }
 

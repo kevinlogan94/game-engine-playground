@@ -8,13 +8,15 @@ export type MobileControls = {
   down: boolean;
   action: boolean;
   actionPressed: boolean;
+  sneak: boolean;
   consumeAction: () => boolean;
   setActionLabel: (label: string) => void;
+  setSneakActive: (active: boolean) => void;
   showDpad: (visible: boolean) => void;
   setVisible: (visible: boolean) => void;
 };
 
-/** On-screen d-pad + action button sized for portrait phones. */
+/** On-screen d-pad + sneak (hold) + action button for portrait phones. */
 export function createMobileControls(scene: Phaser.Scene): MobileControls {
   const state = {
     left: false,
@@ -23,6 +25,7 @@ export function createMobileControls(scene: Phaser.Scene): MobileControls {
     down: false,
     action: false,
     actionPressed: false,
+    sneak: false,
   };
 
   const depth = 1000;
@@ -36,7 +39,7 @@ export function createMobileControls(scene: Phaser.Scene): MobileControls {
     const text = scene.add
       .text(x, y, label, {
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
-        fontSize: "20px",
+        fontSize: "18px",
         color: "#ffffff",
       })
       .setOrigin(0.5)
@@ -47,11 +50,12 @@ export function createMobileControls(scene: Phaser.Scene): MobileControls {
 
   const bindHold = (
     target: Phaser.GameObjects.Rectangle,
-    key: "left" | "right" | "up" | "down" | "action",
+    key: "left" | "right" | "up" | "down" | "action" | "sneak",
+    activeColor = 0x4cc9f0,
   ) => {
     const set = (v: boolean) => {
       state[key] = v;
-      target.setFillStyle(v ? 0x4cc9f0 : 0x000000, v ? 0.55 : 0.45);
+      target.setFillStyle(v ? activeColor : 0x000000, v ? 0.55 : 0.45);
     };
     target.on("pointerdown", (p: Phaser.Input.Pointer) => {
       p.event.preventDefault?.();
@@ -68,16 +72,18 @@ export function createMobileControls(scene: Phaser.Scene): MobileControls {
   const left = btn(28, baseY, 64, 52, "◀");
   const down = btn(88, baseY, 64, 52, "▼");
   const right = btn(148, baseY, 64, 52, "▶");
-  const action = btn(GAME_W - 72, baseY - 20, 104, 72, "Hide");
+  const sneak = btn(GAME_W - 72, baseY - 78, 104, 52, "Sneak");
+  const action = btn(GAME_W - 72, baseY + 4, 104, 56, "Hide");
 
   bindHold(up.bg, "up");
   bindHold(left.bg, "left");
   bindHold(down.bg, "down");
   bindHold(right.bg, "right");
+  bindHold(sneak.bg, "sneak", 0x7bd389);
   bindHold(action.bg, "action");
 
   const dpad = [up, left, down, right];
-  const all = [...dpad, action];
+  const all = [...dpad, sneak, action];
 
   return {
     get left() {
@@ -98,6 +104,9 @@ export function createMobileControls(scene: Phaser.Scene): MobileControls {
     get actionPressed() {
       return state.actionPressed;
     },
+    get sneak() {
+      return state.sneak;
+    },
     consumeAction() {
       if (!state.actionPressed) return false;
       state.actionPressed = false;
@@ -106,11 +115,19 @@ export function createMobileControls(scene: Phaser.Scene): MobileControls {
     setActionLabel(label: string) {
       action.text.setText(label);
     },
+    setSneakActive(active: boolean) {
+      // Visual sync when keyboard Shift drives sneak
+      if (!state.sneak) {
+        sneak.bg.setFillStyle(active ? 0x7bd389 : 0x000000, active ? 0.55 : 0.45);
+      }
+    },
     showDpad(visible: boolean) {
       for (const b of dpad) {
         b.bg.setVisible(visible);
         b.text.setVisible(visible);
       }
+      sneak.bg.setVisible(visible);
+      sneak.text.setVisible(visible);
     },
     setVisible(visible: boolean) {
       for (const b of all) {

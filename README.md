@@ -29,4 +29,4 @@ Portrait canvas (**480×800**), on-screen d-pad + action button. Classic flat to
 
 ## Stealth stub notes
 
-Sneak from the cell to the exit door. Guards patrol with vision cones; crates block line of sight and can be used to hide. Same mobile-first portrait setup as the JRPG demos.
+Sneak from the cell to the exit door. Guards patrol with vision cones; **walking** radiates a noise ring that pulls them into a faster investigate, while holding **Sneak** keeps footsteps quiet. Crates block line of sight and can be used to hide. Same mobile-first portrait setup as the JRPG demos.
