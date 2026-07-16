@@ -1,4 +1,4 @@
-import type { ReplyOption } from "./PhoneOverlay";
+import type { ReplyOption, ThreadMessage } from "./PhoneOverlay";
 import type { SeatId } from "./gameConfig";
 import { seatWorld } from "./gameConfig";
 
@@ -10,7 +10,8 @@ export interface Classmate {
   x: number;
   y: number;
   friendship: number;
-  message: string;
+  /** Prior back-and-forth, ending with their newest inbound text */
+  thread: ThreadMessage[];
   replies: ReplyOption[];
 }
 
@@ -19,11 +20,11 @@ function seated(
   name: string,
   spriteKey: string,
   seat: SeatId,
-  message: string,
+  thread: ThreadMessage[],
   replies: ReplyOption[],
 ): Classmate {
   const { x, y } = seatWorld(seat);
-  return { id, name, spriteKey, seat, x, y, friendship: 0, message, replies };
+  return { id, name, spriteKey, seat, x, y, friendship: 0, thread, replies };
 }
 
 export class GameState {
@@ -37,11 +38,32 @@ export class GameState {
         "Alice",
         "alice",
         "L0",
-        "psst… did you finish the homework? I'm stuck on #3 😅",
         [
-          { id: "help", label: "Yeah — I can walk you through it", friendshipDelta: 2 },
-          { id: "kinda", label: "Kinda… want to compare notes?", friendshipDelta: 1 },
-          { id: "cold", label: "Lol no, figure it out", friendshipDelta: -1 },
+          { from: "them", text: "ok so #2 was fine but #3 is cursed" },
+          { from: "me", text: "lmao which part" },
+          { from: "them", text: "the graph one. my slope is a crime" },
+          { from: "me", text: "send a pic later" },
+          {
+            from: "them",
+            text: "psst… did you finish the homework? I'm stuck on #3 😅",
+          },
+        ],
+        [
+          {
+            id: "help",
+            label: "Yeah — I can walk you through it",
+            friendshipDelta: 2,
+          },
+          {
+            id: "kinda",
+            label: "Kinda… want to compare notes?",
+            friendshipDelta: 1,
+          },
+          {
+            id: "cold",
+            label: "Lol no, figure it out",
+            friendshipDelta: -1,
+          },
         ],
       ),
     );
@@ -53,11 +75,31 @@ export class GameState {
         "Bob",
         "bob",
         "R0",
-        "Hey! Lunch later? There's a new burrito place.",
         [
-          { id: "yes", label: "I'm in — save me a seat", friendshipDelta: 2 },
-          { id: "maybe", label: "Maybe if class ends early", friendshipDelta: 1 },
-          { id: "busy", label: "Can't today, sorry", friendshipDelta: 0 },
+          { from: "them", text: "that lecture was rough" },
+          { from: "me", text: "bro I zoned out at slide 4" },
+          { from: "them", text: "same. I need food immediately" },
+          {
+            from: "them",
+            text: "Hey! Lunch later? There's a new burrito place.",
+          },
+        ],
+        [
+          {
+            id: "yes",
+            label: "I'm in — save me a seat",
+            friendshipDelta: 2,
+          },
+          {
+            id: "maybe",
+            label: "Maybe if class ends early",
+            friendshipDelta: 1,
+          },
+          {
+            id: "busy",
+            label: "Can't today, sorry",
+            friendshipDelta: 0,
+          },
         ],
       ),
     );
@@ -69,11 +111,31 @@ export class GameState {
         "Charlie",
         "charlie",
         "R1",
-        "Did you see that? The teacher just assigned a group project 😬",
         [
-          { id: "team", label: "Want to be partners?", friendshipDelta: 2 },
-          { id: "nervous", label: "Ugh… we'll survive", friendshipDelta: 1 },
-          { id: "ignore_tone", label: "Not my problem", friendshipDelta: -1 },
+          { from: "me", text: "yo is she pairing us up" },
+          { from: "them", text: "wait what" },
+          { from: "me", text: "look at the board" },
+          {
+            from: "them",
+            text: "Did you see that? The teacher just assigned a group project 😬",
+          },
+        ],
+        [
+          {
+            id: "team",
+            label: "Want to be partners?",
+            friendshipDelta: 2,
+          },
+          {
+            id: "nervous",
+            label: "Ugh… we'll survive",
+            friendshipDelta: 1,
+          },
+          {
+            id: "ignore_tone",
+            label: "Not my problem",
+            friendshipDelta: -1,
+          },
         ],
       ),
     );

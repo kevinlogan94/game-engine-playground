@@ -135,7 +135,7 @@ export class ClassroomScene extends Phaser.Scene {
       {
         fromId: classmate.id,
         fromName: classmate.name,
-        text: classmate.message,
+        thread: classmate.thread,
       },
       classmate.replies,
       (result) => this.handlePhoneResult(result, classmate),
@@ -250,7 +250,7 @@ export class ClassroomScene extends Phaser.Scene {
         {
           fromId: classmate.id,
           fromName: classmate.name,
-          text: classmate.message,
+          thread: classmate.thread,
         },
         classmate.replies,
         (result) => this.handlePhoneResult(result, classmate),
