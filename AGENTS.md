@@ -17,3 +17,11 @@ Do not add unit tests unless the user asks for them.
 ## No backwards compatibility by default
 
 Do not preserve backwards compatibility unless the user asks for it. Prefer the cleanest current solution over compatibility shims.
+
+## Prefer terminal for file ops
+
+When interacting with files, prefer terminal commands over editing files directly when possible (saves tokens). Example: use `mv` instead of writing the file in the new location and removing the old one.
+
+## Scene colocation
+
+Keep scene-specific assets, entities, combat, UI, config, tests, and helpers in `scenes/<scene>/`. Move code to the closest shared parent only when multiple scenes use it. Do not import another scene’s private files; promote shared code first.
