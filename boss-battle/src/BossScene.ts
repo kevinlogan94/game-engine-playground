@@ -428,8 +428,14 @@ export class BossScene extends Phaser.Scene {
       this.boss.setVelocity((dx / dist) * speed, (dy / dist) * speed);
       this.boss.anims.play(walkKey, true);
       if (now >= this.bossStateAt) {
+        if (dist > 80) {
+          if (this.phase !== 2) return; // phase 1 far: keep chasing
+          this.bossAttack = "charge";
+          this.chargeDir = { x: dx / dist, y: dy / dist };
+        } else {
+          this.pickAttack();
+        }
         this.boss.setVelocity(0, 0);
-        this.pickAttack(dist);
         this.bossState = "windup";
         this.bossStateAt = now + windup;
         this.showTelegraph();
@@ -475,10 +481,9 @@ export class BossScene extends Phaser.Scene {
     }
   }
 
-  private pickAttack(dist: number) {
+  private pickAttack() {
     const roll = Math.random();
-    if (this.phase === 2 && dist > 80 && roll < 0.34) this.bossAttack = "charge";
-    else if (roll < 0.5) this.bossAttack = "slam";
+    if (roll < 0.5) this.bossAttack = "slam";
     else this.bossAttack = "slash";
 
     const dx = this.player.x - this.boss.x;
