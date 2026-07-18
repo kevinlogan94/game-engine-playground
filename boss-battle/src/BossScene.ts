@@ -1,12 +1,14 @@
 import Phaser from "phaser";
 import {
+  ARENA_FLOOR,
   BOSS,
+  BOSS_SCALE,
+  COBBLE,
   DIRS,
   GAME_H,
   GAME_W,
   PLAYER,
   SPRITE_SCALE,
-  BOSS_SCALE,
   TILE,
   TILE_SCALE,
   dirFromVector,
@@ -15,15 +17,10 @@ import {
 } from "./gameConfig";
 
 const ASSET = "assets/lpc";
-/** castlefloors.png 10-wide: red boss tiles / grey cobble */
-const ARENA_FLOOR = 72;
-const COBBLE = [55, 56, 65, 66] as const;
 
 type Mode = "intro" | "fight" | "shift" | "dead" | "won";
 type Attack = "slam" | "slash" | "charge";
 type BossState = "chase" | "windup" | "strike" | "recover";
-
-type BossData = { skipIntro?: boolean };
 
 /** Arena fight with Dark Souls-style intro and two phases. */
 export class BossScene extends Phaser.Scene {
@@ -45,12 +42,12 @@ export class BossScene extends Phaser.Scene {
   private dodgeUntil = 0;
   private dodgeReadyAt = 0;
   private attackUntil = 0;
+  private hurtUntil = 0;
   private bossState: BossState = "chase";
   private bossAttack: Attack = "slam";
   private bossStateAt = 0;
   private chargeDir = { x: 0, y: 0 };
   private chargeHitThisStrike = false;
-  private hurtUntil = 0;
   private bossBar!: Phaser.GameObjects.Graphics;
   private playerBar!: Phaser.GameObjects.Graphics;
   private banner!: Phaser.GameObjects.Text;
@@ -62,7 +59,7 @@ export class BossScene extends Phaser.Scene {
     super("Boss");
   }
 
-  init(data: BossData) {
+  init(data: { skipIntro?: boolean }) {
     this.skipIntro = !!data.skipIntro;
   }
 
@@ -83,15 +80,7 @@ export class BossScene extends Phaser.Scene {
       frameWidth: 64,
       frameHeight: 64,
     });
-    this.load.spritesheet("hurt", `${ASSET}/sprites/male_hurt.png`, {
-      frameWidth: 64,
-      frameHeight: 64,
-    });
     this.load.spritesheet("soldier", `${ASSET}/sprites/soldier.png`, {
-      frameWidth: 64,
-      frameHeight: 64,
-    });
-    this.load.spritesheet("soldier2", `${ASSET}/sprites/soldier_altcolor.png`, {
       frameWidth: 64,
       frameHeight: 64,
     });
@@ -102,12 +91,9 @@ export class BossScene extends Phaser.Scene {
     this.phase = 1;
     this.playerHp = PLAYER.hp;
     this.bossHp = BOSS.hp;
-    this.invulnUntil = 0;
-    this.dodgeUntil = 0;
-    this.dodgeReadyAt = 0;
-    this.attackUntil = 0;
+    this.invulnUntil = this.dodgeUntil = this.dodgeReadyAt = 0;
+    this.attackUntil = this.hurtUntil = 0;
     this.bossState = "chase";
-    this.bossStateAt = this.time.now + 800;
     this.facing = "up";
 
     this.buildArena();
@@ -132,9 +118,7 @@ export class BossScene extends Phaser.Scene {
       .setDepth(4)
       .setTint(0xc8c0b8)
       .setImmovable(true);
-    // Arcade body size is multiplied by sprite scale
     this.boss.body.setSize(34, 40).setOffset(15, 22);
-    this.boss.setVelocity(0, 0);
 
     this.physics.add.collider(this.player, this.walls);
     this.physics.add.collider(this.boss, this.walls);
@@ -240,7 +224,13 @@ export class BossScene extends Phaser.Scene {
   }
 
   private makeAnims() {
-    const mk = (key: string, sheet: string, row: number, n: number, start = 0) => {
+    const mk = (
+      key: string,
+      sheet: string,
+      row: number,
+      n: number,
+      start = 0,
+    ) => {
       if (this.anims.exists(key)) return;
       this.anims.create({
         key,
@@ -258,21 +248,17 @@ export class BossScene extends Phaser.Scene {
         frames: [{ key: "walk", frame: 18 }],
       });
     }
+    if (!this.anims.exists("b-idle")) {
+      this.anims.create({
+        key: "b-idle",
+        frames: [{ key: "soldier", frame: 18 }],
+      });
+    }
     for (let i = 0; i < DIRS.length; i++) {
       const d = DIRS[i]!;
       mk(`p-walk-${d}`, "walk", i, 9, 1);
       mk(`p-slash-${d}`, "slash", i, 6);
       mk(`b-walk-${d}`, "soldier", i, 9, 1);
-      mk(`b2-walk-${d}`, "soldier2", i, 9, 1);
-    }
-    if (!this.anims.exists("b-idle")) {
-      this.anims.create({ key: "b-idle", frames: [{ key: "soldier", frame: 18 }] });
-      this.anims.create({ key: "b2-idle", frames: [{ key: "soldier2", frame: 18 }] });
-      this.anims.create({
-        key: "p-hurt",
-        frames: this.anims.generateFrameNumbers("hurt", { start: 0, end: 5 }),
-        frameRate: 12,
-      });
     }
   }
 
@@ -305,7 +291,7 @@ export class BossScene extends Phaser.Scene {
     });
   }
 
-  update(_t: number, _dt: number) {
+  update() {
     this.drawBars();
     if (this.mode === "intro" || this.mode === "shift") {
       this.player.setVelocity(0, 0);
@@ -324,22 +310,19 @@ export class BossScene extends Phaser.Scene {
     this.updatePlayer();
     this.updateBoss();
     this.pants.setPosition(this.player.x, this.player.y);
-    const dirIdx = DIRS.indexOf(this.facing);
+    this.pants.setAlpha(this.player.alpha);
     if (this.player.texture.key === "walk") {
       this.pants.setFrame(this.player.frame.name);
     } else {
-      this.pants.setFrame(dirIdx * 9);
+      this.pants.setFrame(DIRS.indexOf(this.facing) * 9);
     }
-    this.pants.setAlpha(this.player.alpha);
   }
 
   private updatePlayer() {
     const now = this.time.now;
-    const dodging = now < this.dodgeUntil;
-    const attacking = now < this.attackUntil;
-    const hurt = now < this.hurtUntil;
-
-    if (dodging || attacking || hurt) return;
+    if (now < this.dodgeUntil || now < this.attackUntil || now < this.hurtUntil) {
+      return;
+    }
 
     let vx = 0;
     let vy = 0;
@@ -347,8 +330,7 @@ export class BossScene extends Phaser.Scene {
     if (this.cursors.right.isDown || this.wasd.D.isDown) vx += 1;
     if (this.cursors.up.isDown || this.wasd.W.isDown) vy -= 1;
     if (this.cursors.down.isDown || this.wasd.S.isDown) vy += 1;
-    const moving = vx !== 0 || vy !== 0;
-    if (moving) {
+    if (vx || vy) {
       const len = Math.hypot(vx, vy);
       vx /= len;
       vy /= len;
@@ -365,9 +347,10 @@ export class BossScene extends Phaser.Scene {
       now >= this.dodgeReadyAt
     ) {
       const off = facingOffset(this.facing, 1);
-      const dx = vx || off.x;
-      const dy = vy || off.y;
-      this.player.setVelocity(dx * PLAYER.dodgeSpeed, dy * PLAYER.dodgeSpeed);
+      this.player.setVelocity(
+        (vx || off.x) * PLAYER.dodgeSpeed,
+        (vy || off.y) * PLAYER.dodgeSpeed,
+      );
       this.dodgeUntil = now + PLAYER.dodgeMs;
       this.dodgeReadyAt = now + PLAYER.dodgeCooldownMs;
       this.invulnUntil = now + PLAYER.iFrameMs;
@@ -377,28 +360,24 @@ export class BossScene extends Phaser.Scene {
       this.attackUntil = now + PLAYER.attackMs;
       this.player.setVelocity(0, 0);
       this.player.anims.play(`p-slash-${this.facing}`, true);
-      this.tryPlayerHit();
+      const off = facingOffset(this.facing, PLAYER.attackReach);
+      const bossR = 28 * BOSS_SCALE * 0.45;
+      if (
+        Math.hypot(this.boss.x - (this.player.x + off.x), this.boss.y - (this.player.y + off.y)) <
+        bossR + 22
+      ) {
+        this.damageBoss();
+      }
     }
   }
 
-  private tryPlayerHit() {
-    const off = facingOffset(this.facing, PLAYER.attackReach);
-    const hx = this.player.x + off.x;
-    const hy = this.player.y + off.y;
-    const bossR = 28 * BOSS_SCALE * 0.45;
-    if (Math.hypot(this.boss.x - hx, this.boss.y - hy) < bossR + 22) {
-      this.damageBoss(1);
-    }
-  }
-
-  private damageBoss(amount: number) {
+  private damageBoss() {
     if (this.mode !== "fight") return;
-    this.bossHp = Math.max(0, this.bossHp - amount);
+    this.bossHp = Math.max(0, this.bossHp - 1);
     this.boss.setTintFill(0xffffff);
     this.time.delayedCall(80, () => {
       this.boss.clearTint();
-      if (this.phase === 1) this.boss.setTint(0xc8c0b8);
-      else this.boss.setTint(0xff6655);
+      this.boss.setTint(this.phase === 1 ? 0xc8c0b8 : 0xff6655);
     });
     if (this.bossHp <= 0) {
       this.win();
@@ -413,7 +392,6 @@ export class BossScene extends Phaser.Scene {
     this.boss.setVelocity(0, 0);
     this.player.setVelocity(0, 0);
     this.telegraph.setVisible(false);
-    this.boss.setTexture("soldier2", 18);
     this.boss.setTint(0xff6655);
     this.banner.setText("SECOND FORM").setAlpha(0);
     this.cameras.main.flash(400, 180, 40, 20);
@@ -437,9 +415,11 @@ export class BossScene extends Phaser.Scene {
     const speed = this.phase === 1 ? BOSS.speed : BOSS.speedP2;
     const windup = this.phase === 1 ? BOSS.windupMs : BOSS.windupMsP2;
     const recover = this.phase === 1 ? BOSS.recoverMs : BOSS.recoverMsP2;
-    const bDir = dirFromVector(this.player.x - this.boss.x, this.player.y - this.boss.y);
-    const walkKey = this.phase === 1 ? `b-walk-${bDir}` : `b2-walk-${bDir}`;
-    const idleKey = this.phase === 1 ? "b-idle" : "b2-idle";
+    const bDir = dirFromVector(
+      this.player.x - this.boss.x,
+      this.player.y - this.boss.y,
+    );
+    const walkKey = `b-walk-${bDir}`;
 
     if (this.bossState === "chase") {
       const dx = this.player.x - this.boss.x;
@@ -456,11 +436,12 @@ export class BossScene extends Phaser.Scene {
       }
     } else if (this.bossState === "windup") {
       this.boss.setVelocity(0, 0);
-      this.boss.anims.play(idleKey, true);
+      this.boss.anims.play("b-idle", true);
       this.showTelegraph();
       if (now >= this.bossStateAt) {
         this.bossState = "strike";
-        this.bossStateAt = now + (this.bossAttack === "charge" ? 320 : BOSS.strikeMs);
+        this.bossStateAt =
+          now + (this.bossAttack === "charge" ? 320 : BOSS.strikeMs);
         this.doStrike();
       }
     } else if (this.bossState === "strike") {
@@ -486,7 +467,7 @@ export class BossScene extends Phaser.Scene {
       }
     } else if (this.bossState === "recover") {
       this.boss.setVelocity(0, 0);
-      this.boss.anims.play(idleKey, true);
+      this.boss.anims.play("b-idle", true);
       if (now >= this.bossStateAt) {
         this.bossState = "chase";
         this.bossStateAt = now + (this.phase === 1 ? 700 : 420);
@@ -514,7 +495,9 @@ export class BossScene extends Phaser.Scene {
           this.boss.y + this.chargeDir.y * 50,
         )
         .setSize(48, 110)
-        .setRotation(Math.atan2(this.chargeDir.y, this.chargeDir.x) + Math.PI / 2)
+        .setRotation(
+          Math.atan2(this.chargeDir.y, this.chargeDir.x) + Math.PI / 2,
+        )
         .setVisible(true);
     } else if (this.bossAttack === "slam") {
       this.telegraph
@@ -537,16 +520,23 @@ export class BossScene extends Phaser.Scene {
 
   private doStrike() {
     this.telegraph.setFillStyle(0xff2200, 0.55);
-    this.time.delayedCall(120, () => this.telegraph.setFillStyle(0xff4422, 0.35));
+    this.time.delayedCall(120, () =>
+      this.telegraph.setFillStyle(0xff4422, 0.35),
+    );
     this.chargeHitThisStrike = false;
 
     if (this.bossAttack === "slam") {
       const tx = this.boss.x + this.chargeDir.x * 40;
       const ty = this.boss.y + this.chargeDir.y * 40;
-      if (Math.hypot(this.player.x - tx, this.player.y - ty) < 48) this.hurtPlayer();
+      if (Math.hypot(this.player.x - tx, this.player.y - ty) < 48) {
+        this.hurtPlayer();
+      }
     } else if (this.bossAttack === "slash") {
-      if (Math.hypot(this.player.x - this.boss.x, this.player.y - this.boss.y) < BOSS.reach + 10) {
-        this.hurtPlayer(160); // short i-frames so phase-2 second tick can land
+      if (
+        Math.hypot(this.player.x - this.boss.x, this.player.y - this.boss.y) <
+        BOSS.reach + 10
+      ) {
+        this.hurtPlayer(160);
       }
       if (this.phase === 2) {
         this.time.delayedCall(200, () => {
@@ -560,7 +550,6 @@ export class BossScene extends Phaser.Scene {
         });
       }
     }
-    // charge damage is applied continuously in updateBoss while striking
   }
 
   private chargeHitsPlayer() {
@@ -578,7 +567,6 @@ export class BossScene extends Phaser.Scene {
     this.invulnUntil = now + iFrameMs;
     this.hurtUntil = now + 280;
     this.player.setVelocity(0, 0);
-    this.player.anims.play("p-hurt", true);
     this.cameras.main.shake(120, 0.01);
     this.player.setTintFill(0xffaaaa);
     this.time.delayedCall(100, () => this.player.clearTint());

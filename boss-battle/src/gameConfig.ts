@@ -7,13 +7,16 @@ export const TILE_SCALE = 1.5;
 export const SPRITE_SCALE = 1.5;
 export const BOSS_SCALE = 2.4;
 
+/** castlefloors.png is 10 cols — grey cobble interiors */
+export const COBBLE = [55, 56, 65, 66] as const;
+/** Solid red arena tile */
+export const ARENA_FLOOR = 72;
+
 export const PLAYER = {
   speed: 160,
   hp: 5,
   attackMs: 280,
   attackReach: 42,
-  attackW: 36,
-  attackH: 48,
   dodgeSpeed: 420,
   dodgeMs: 220,
   dodgeCooldownMs: 480,

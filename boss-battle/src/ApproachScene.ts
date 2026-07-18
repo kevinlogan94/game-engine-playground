@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import {
+  COBBLE,
   DIRS,
   GAME_H,
   GAME_W,
@@ -12,8 +13,6 @@ import {
 } from "./gameConfig";
 
 const ASSET = "assets/lpc";
-/** castlefloors.png is 10 cols — grey cobble interiors */
-const COBBLE = [55, 56, 65, 66] as const;
 
 /** Outside the fog gate — walk north into the mist to begin. */
 export class ApproachScene extends Phaser.Scene {
@@ -56,7 +55,8 @@ export class ApproachScene extends Phaser.Scene {
       for (let c = 0; c < cols; c++) {
         const x = c * TILE + TILE / 2;
         const y = r * TILE + TILE / 2;
-        const gate = r <= 1 && c >= Math.floor(cols / 2) - 1 && c <= Math.floor(cols / 2);
+        const gate =
+          r <= 1 && c >= Math.floor(cols / 2) - 1 && c <= Math.floor(cols / 2);
         const edge = r === 0 || c === 0 || c === cols - 1 || r === rows - 1;
 
         this.add
@@ -78,7 +78,6 @@ export class ApproachScene extends Phaser.Scene {
 
     const fogX = GAME_W / 2;
     const fogY = TILE * 1.1;
-    // Stone gate pillars
     this.add.rectangle(fogX - 70, fogY, 18, TILE * 2.2, 0x3a424c).setDepth(2);
     this.add.rectangle(fogX + 70, fogY, 18, TILE * 2.2, 0x3a424c).setDepth(2);
     this.add.rectangle(fogX, fogY - 40, 160, 16, 0x3a424c).setDepth(2);
@@ -176,8 +175,7 @@ export class ApproachScene extends Phaser.Scene {
     if (this.cursors.right.isDown || this.wasd.D.isDown) vx += 1;
     if (this.cursors.up.isDown || this.wasd.W.isDown) vy -= 1;
     if (this.cursors.down.isDown || this.wasd.S.isDown) vy += 1;
-    const moving = vx !== 0 || vy !== 0;
-    if (moving) {
+    if (vx || vy) {
       const len = Math.hypot(vx, vy);
       vx /= len;
       vy /= len;
@@ -187,10 +185,6 @@ export class ApproachScene extends Phaser.Scene {
       this.player.anims.play("p-idle", true);
     }
     this.player.setVelocity(vx * PLAYER.speed, vy * PLAYER.speed);
-    this.syncPants();
-  }
-
-  private syncPants() {
     this.pants.setPosition(this.player.x, this.player.y);
     this.pants.setFrame(this.player.frame.name);
   }
@@ -201,7 +195,7 @@ export class ApproachScene extends Phaser.Scene {
     this.player.setVelocity(0, 0);
     this.cameras.main.fadeOut(700, 10, 10, 14);
     this.cameras.main.once("camerafadeoutcomplete", () => {
-      this.scene.start("Boss", { skipIntro: false });
+      this.scene.start("Boss");
     });
   }
 }
