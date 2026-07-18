@@ -12,10 +12,13 @@ import {
 } from "./gameConfig";
 
 const ASSET = "assets/lpc";
+/** castlefloors.png is 10 cols — grey cobble interiors */
+const COBBLE = [55, 56, 65, 66] as const;
 
 /** Outside the fog gate — walk north into the mist to begin. */
 export class ApproachScene extends Phaser.Scene {
   private player!: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
+  private pants!: Phaser.GameObjects.Sprite;
   private walls!: Phaser.Physics.Arcade.StaticGroup;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
@@ -27,19 +30,15 @@ export class ApproachScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.spritesheet("floor", `${ASSET}/tiles/castlefloors.png`, {
-      frameWidth: 32,
-      frameHeight: 32,
-    });
-    this.load.spritesheet("outside", `${ASSET}/tiles/castle_outside.png`, {
-      frameWidth: 32,
-      frameHeight: 32,
-    });
-    this.load.spritesheet("walls", `${ASSET}/tiles/castlewalls.png`, {
+    this.load.spritesheet("floors", `${ASSET}/tiles/castlefloors.png`, {
       frameWidth: 32,
       frameHeight: 32,
     });
     this.load.spritesheet("walk", `${ASSET}/sprites/male_walkcycle.png`, {
+      frameWidth: 64,
+      frameHeight: 64,
+    });
+    this.load.spritesheet("pants", `${ASSET}/sprites/male_pants.png`, {
       frameWidth: 64,
       frameHeight: 64,
     });
@@ -57,62 +56,57 @@ export class ApproachScene extends Phaser.Scene {
       for (let c = 0; c < cols; c++) {
         const x = c * TILE + TILE / 2;
         const y = r * TILE + TILE / 2;
+        const gate = r <= 1 && c >= Math.floor(cols / 2) - 1 && c <= Math.floor(cols / 2);
         const edge = r === 0 || c === 0 || c === cols - 1 || r === rows - 1;
-        const gate = r === 0 && c >= cols / 2 - 1 && c <= cols / 2;
+
+        this.add
+          .image(x, y, "floors", COBBLE[(r + c) % COBBLE.length]!)
+          .setScale(TILE_SCALE)
+          .setDepth(0)
+          .setTint(r < 3 ? 0xc8d0dc : 0xa8b0bc);
+
         if (edge && !gate) {
-          this.add.image(x, y, "walls", 1).setScale(TILE_SCALE).setDepth(1);
-          this.walls.create(x, y, "walls", 1).setScale(TILE_SCALE).refreshBody();
-        } else {
-          const key = r < 3 ? "outside" : "floor";
-          const frame = r < 3 ? 4 : 0;
-          this.add.image(x, y, key, frame).setScale(TILE_SCALE).setDepth(0);
+          const block = this.add
+            .rectangle(x, y, TILE, TILE, 0x3e4854)
+            .setDepth(1)
+            .setStrokeStyle(2, 0x5a6570);
+          this.physics.add.existing(block, true);
+          this.walls.add(block);
         }
       }
     }
 
-    // Foggy entryway (center-top)
     const fogX = GAME_W / 2;
-    const fogY = TILE * 1.2;
+    const fogY = TILE * 1.1;
+    // Stone gate pillars
+    this.add.rectangle(fogX - 70, fogY, 18, TILE * 2.2, 0x3a424c).setDepth(2);
+    this.add.rectangle(fogX + 70, fogY, 18, TILE * 2.2, 0x3a424c).setDepth(2);
+    this.add.rectangle(fogX, fogY - 40, 160, 16, 0x3a424c).setDepth(2);
+
     const fog = this.add.graphics().setDepth(5);
-    for (let i = 0; i < 5; i++) {
-      fog.fillStyle(0xc8d0dc, 0.12 + i * 0.05);
-      fog.fillEllipse(fogX, fogY + i * 6, 140 - i * 10, 70 - i * 6);
+    for (let i = 0; i < 8; i++) {
+      fog.fillStyle(0xe8eef6, 0.1 + i * 0.06);
+      fog.fillEllipse(fogX, fogY + 8 + i * 4, 170 - i * 8, 88 - i * 5);
     }
     this.add
-      .text(fogX, fogY - 28, "FOG GATE", {
-        fontFamily: "serif",
-        fontSize: "14px",
-        color: "#d8dee8",
+      .text(fogX, fogY - 56, "FOG GATE", {
+        fontFamily: "Georgia, serif",
+        fontSize: "16px",
+        color: "#e8eef6",
       })
       .setOrigin(0.5)
       .setDepth(6)
-      .setAlpha(0.7);
+      .setAlpha(0.85);
 
     this.tweens.add({
       targets: fog,
-      alpha: { from: 0.65, to: 1 },
-      duration: 1800,
+      alpha: { from: 0.7, to: 1 },
+      duration: 1600,
       yoyo: true,
       repeat: -1,
     });
 
-    this.anims.create({
-      key: "p-idle",
-      frames: [{ key: "walk", frame: 18 }],
-      frameRate: 1,
-    });
-    for (let i = 0; i < DIRS.length; i++) {
-      const dir = DIRS[i]!;
-      this.anims.create({
-        key: `p-walk-${dir}`,
-        frames: this.anims.generateFrameNumbers("walk", {
-          start: i * 9 + 1,
-          end: i * 9 + 8,
-        }),
-        frameRate: 10,
-        repeat: -1,
-      });
-    }
+    this.ensureAnims();
 
     this.player = this.physics.add
       .sprite(GAME_W / 2, GAME_H - TILE * 2, "walk", 18)
@@ -121,9 +115,15 @@ export class ApproachScene extends Phaser.Scene {
       .setCollideWorldBounds(true);
     this.player.body.setSize(22, 28).setOffset(21, 28);
 
+    this.pants = this.add
+      .sprite(this.player.x, this.player.y, "pants", 18)
+      .setScale(SPRITE_SCALE)
+      .setDepth(5)
+      .setTint(0x3a4558);
+
     this.physics.add.collider(this.player, this.walls);
 
-    const gateZone = this.add.zone(fogX, fogY + 10, 90, 70);
+    const gateZone = this.add.zone(fogX, fogY + 16, 100, 80);
     this.physics.add.existing(gateZone, true);
     this.physics.add.overlap(this.player, gateZone, () => this.enterFog());
 
@@ -135,13 +135,37 @@ export class ApproachScene extends Phaser.Scene {
 
     this.add
       .text(GAME_W / 2, GAME_H - 18, "WASD / arrows — approach the fog gate", {
-        fontFamily: "serif",
+        fontFamily: "Georgia, serif",
         fontSize: "14px",
         color: "#9aa3b2",
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(20);
+  }
+
+  private ensureAnims() {
+    if (!this.anims.exists("p-idle")) {
+      this.anims.create({
+        key: "p-idle",
+        frames: [{ key: "walk", frame: 18 }],
+        frameRate: 1,
+      });
+    }
+    for (let i = 0; i < DIRS.length; i++) {
+      const dir = DIRS[i]!;
+      const key = `p-walk-${dir}`;
+      if (this.anims.exists(key)) continue;
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers("walk", {
+          start: i * 9 + 1,
+          end: i * 9 + 8,
+        }),
+        frameRate: 10,
+        repeat: -1,
+      });
+    }
   }
 
   update() {
@@ -163,6 +187,12 @@ export class ApproachScene extends Phaser.Scene {
       this.player.anims.play("p-idle", true);
     }
     this.player.setVelocity(vx * PLAYER.speed, vy * PLAYER.speed);
+    this.syncPants();
+  }
+
+  private syncPants() {
+    this.pants.setPosition(this.player.x, this.player.y);
+    this.pants.setFrame(this.player.frame.name);
   }
 
   private enterFog() {
