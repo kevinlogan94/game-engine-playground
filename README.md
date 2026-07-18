@@ -11,6 +11,7 @@ Small demos for comparing engines and game patterns in Cursor.
 | `stealth` | Phaser | Jailbreak stealth (vision cones + hide behind crates) |
 | `jigsaw` | Phaser | Separate puzzle experiment |
 | `classroom-phone` | Phaser | Classroom idle → phone rings (music notes) → message overlay → choice → classmate reaction & friendship stat |
+| `boss-battle` | Phaser | Landscape Dark Souls-style fog gate → boss intro → 2-phase fight (LPC art) |
 
 ## Run
 
@@ -19,6 +20,7 @@ cd phaser && npm install && npm run dev              # http://localhost:5173
 cd kaplay && npm install && npm run dev             # http://localhost:5174
 cd stealth && npm install && npm run dev            # http://localhost:5175
 cd classroom-phone && npm install && npm run dev    # http://localhost:5176
+cd boss-battle && npm install && npm run dev        # http://localhost:5177
 ```
 
 ## Art
@@ -26,6 +28,8 @@ cd classroom-phone && npm install && npm run dev    # http://localhost:5176
 JRPG + stealth demos use **[Kenney Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon)** (CC0) under `public/assets/kenney-tiny-dungeon/`.
 
 `classroom-phone` uses **[Cool School tileset](https://opengameart.org/content/cool-school-tileset)** by NettySvit (CC0) under `classroom-phone/public/assets/cool-school/` (layered floor/chair/desk tiles), plus Kenney Tiny Dungeon characters seated between chair and desk.
+
+`boss-battle` uses **[Liberated Pixel Cup base assets](https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles)** under `boss-battle/public/assets/lpc/` (see `CREDITS.TXT`). Landscape desktop controls (WASD / Space / Shift) — not mobile.
 
 ## JRPG stub notes
 
