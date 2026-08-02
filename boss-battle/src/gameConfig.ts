@@ -23,6 +23,18 @@ export const PLAYER = {
   iFrameMs: 260,
 };
 
+export const LORE = {
+  approach: [
+    "Hold, stranger. Beyond the fog waits only ruin.",
+    "This place does not welcome you. It claims you.",
+  ],
+  boss: [
+    "So. The forgotten still send their blades.",
+    "Come then. Honor the oath that outlived your kind.",
+  ],
+  phase2: "Still standing? Then keep your vow in blood.",
+} as const;
+
 export const BOSS = {
   name: "Ashen Lord",
   hp: 20,

@@ -3,6 +3,7 @@ import {
   COBBLE,
   GAME_H,
   GAME_W,
+  LORE,
   PLAYER,
   TILE,
   TILE_SCALE,
@@ -33,6 +34,11 @@ export class ApproachScene extends Phaser.Scene {
   private dodgeReadyAt = 0;
   private attackUntil = 0;
   private entered = false;
+  private whispering = true;
+  private veil!: Phaser.GameObjects.Rectangle;
+  private panel!: Phaser.GameObjects.Rectangle;
+  private whisper!: Phaser.GameObjects.Text;
+  private hint!: Phaser.GameObjects.Text;
 
   constructor() {
     super("Approach");
@@ -48,6 +54,7 @@ export class ApproachScene extends Phaser.Scene {
 
   create() {
     this.entered = false;
+    this.whispering = true;
     this.facing = "up";
     this.dodgeUntil = this.dodgeReadyAt = this.attackUntil = 0;
     this.walls = this.physics.add.staticGroup();
@@ -126,7 +133,7 @@ export class ApproachScene extends Phaser.Scene {
       Phaser.Input.Keyboard.KeyCodes.SHIFT,
     );
 
-    this.add
+    this.hint = this.add
       .text(
         GAME_W / 2,
         GAME_H - 18,
@@ -139,10 +146,36 @@ export class ApproachScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(20);
+
+    this.veil = this.add
+      .rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x000000, 0)
+      .setDepth(50)
+      .setScrollFactor(0);
+    this.panel = this.add
+      .rectangle(GAME_W / 2, GAME_H / 2, 580, 84, 0x0a0810, 0.9)
+      .setDepth(51)
+      .setScrollFactor(0)
+      .setAlpha(0);
+    this.whisper = this.add
+      .text(GAME_W / 2, GAME_H / 2, "", {
+        fontFamily: "Georgia, serif",
+        fontSize: "20px",
+        fontStyle: "italic",
+        color: "#e8dcc8",
+        stroke: "#1a120c",
+        strokeThickness: 3,
+        align: "center",
+        wordWrap: { width: 520 },
+      })
+      .setOrigin(0.5)
+      .setDepth(51)
+      .setScrollFactor(0)
+      .setAlpha(0);
+    this.playWhisper();
   }
 
   update() {
-    if (this.entered) return;
+    if (this.whispering || this.entered) return;
 
     const now = this.time.now;
     if (now < this.dodgeUntil) return;
@@ -186,6 +219,47 @@ export class ApproachScene extends Phaser.Scene {
       this.player.setVelocity(0, 0);
       this.player.anims.play(`p-slash-${this.facing}`, true);
     }
+  }
+
+  private playWhisper() {
+    this.hint.setVisible(false);
+    this.tweens.add({ targets: this.veil, alpha: 0.58, duration: 800, delay: 600 });
+    this.whisperLine(0, () => {
+      this.tweens.add({
+        targets: this.veil,
+        alpha: 0,
+        duration: 700,
+        onComplete: () => {
+          this.hint.setVisible(true);
+          this.whispering = false;
+        },
+      });
+    });
+  }
+
+  private whisperLine(i: number, done: () => void) {
+    if (i >= LORE.approach.length) {
+      done();
+      return;
+    }
+    this.whisper.setText(`"${LORE.approach[i]}"`).setAlpha(0);
+    this.panel.setAlpha(0);
+    this.tweens.add({ targets: this.veil, alpha: 0.74, duration: 500 });
+    this.tweens.add({
+      targets: [this.panel, this.whisper],
+      alpha: 1,
+      duration: 900,
+      onComplete: () =>
+        this.time.delayedCall(2400, () => {
+          this.tweens.add({ targets: this.veil, alpha: 0.58, duration: 400 });
+          this.tweens.add({
+            targets: [this.panel, this.whisper],
+            alpha: 0,
+            duration: 600,
+            onComplete: () => this.whisperLine(i + 1, done),
+          });
+        }),
+    });
   }
 
   private enterFog() {

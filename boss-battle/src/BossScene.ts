@@ -5,6 +5,7 @@ import {
   COBBLE,
   GAME_H,
   GAME_W,
+  LORE,
   PLAYER,
   TILE,
   TILE_SCALE,
@@ -58,6 +59,9 @@ export class BossScene extends Phaser.Scene {
   private bossBar!: Phaser.GameObjects.Graphics;
   private playerBar!: Phaser.GameObjects.Graphics;
   private banner!: Phaser.GameObjects.Text;
+  private line!: Phaser.GameObjects.Text;
+  private veil!: Phaser.GameObjects.Rectangle;
+  private panel!: Phaser.GameObjects.Rectangle;
   private hint!: Phaser.GameObjects.Text;
   private telegraph!: Phaser.GameObjects.Rectangle;
   private skipIntro = false;
@@ -128,6 +132,30 @@ export class BossScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(40)
+      .setAlpha(0);
+
+    this.line = this.add
+      .text(GAME_W / 2, GAME_H / 2, "", {
+        fontFamily: "Georgia, serif",
+        fontSize: "20px",
+        fontStyle: "italic",
+        color: "#e8dcc8",
+        stroke: "#1a120c",
+        strokeThickness: 3,
+        align: "center",
+        wordWrap: { width: 560 },
+      })
+      .setOrigin(0.5)
+      .setDepth(42)
+      .setAlpha(0);
+
+    this.veil = this.add
+      .rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x000000, 0)
+      .setDepth(39)
+      .setScrollFactor(0);
+    this.panel = this.add
+      .rectangle(GAME_W / 2, GAME_H / 2, 620, 88, 0x0a0810, 0.9)
+      .setDepth(41)
       .setAlpha(0);
 
     this.hint = this.add
@@ -210,6 +238,7 @@ export class BossScene extends Phaser.Scene {
   }
 
   private playIntro() {
+    this.hint.setVisible(false);
     this.player.setVelocity(0, 0);
     this.boss.setVelocity(0, 0);
     this.cameras.main.zoomTo(1.35, 1200, "Sine.easeInOut");
@@ -229,13 +258,50 @@ export class BossScene extends Phaser.Scene {
         alpha: 0,
         duration: 500,
         onComplete: () => {
-          this.cameras.main.zoomTo(1, 600);
-          this.cameras.main.pan(GAME_W / 2, GAME_H / 2, 600);
-          this.mode = "fight";
-          this.bossStateAt = this.time.now + 300;
+          this.hint.setVisible(false);
+          this.tweens.add({ targets: this.veil, alpha: 0.58, duration: 400 });
+          this.bossLine(0, () => this.endIntro());
         },
       });
     });
+  }
+
+  private bossLine(i: number, done: () => void) {
+    if (i >= LORE.boss.length) {
+      done();
+      return;
+    }
+    this.line.setText(`"${LORE.boss[i]}"`).setAlpha(0);
+    this.panel.setAlpha(0);
+    this.tweens.add({ targets: this.veil, alpha: 0.74, duration: 500 });
+    this.tweens.add({
+      targets: [this.panel, this.line],
+      alpha: 1,
+      duration: 700,
+      onComplete: () =>
+        this.time.delayedCall(2200, () => {
+          this.tweens.add({ targets: this.veil, alpha: 0.58, duration: 400 });
+          this.tweens.add({
+            targets: [this.panel, this.line],
+            alpha: 0,
+            duration: 500,
+            onComplete: () => this.bossLine(i + 1, done),
+          });
+        }),
+    });
+  }
+
+  private endIntro() {
+    this.tweens.add({
+      targets: this.veil,
+      alpha: 0,
+      duration: 500,
+      onComplete: () => this.hint.setVisible(true),
+    });
+    this.cameras.main.zoomTo(1, 600);
+    this.cameras.main.pan(GAME_W / 2, GAME_H / 2, 600);
+    this.mode = "fight";
+    this.bossStateAt = this.time.now + 300;
   }
 
   update() {
@@ -334,15 +400,20 @@ export class BossScene extends Phaser.Scene {
     this.player.setVelocity(0, 0);
     this.telegraph.setVisible(false);
     this.boss.setTint(0xff6655);
-    this.banner.setText("SECOND FORM").setAlpha(0);
+    this.hint.setVisible(false);
+    this.line.setText(`"${LORE.phase2}"`).setAlpha(0);
+    this.panel.setAlpha(0);
     this.cameras.main.flash(400, 180, 40, 20);
-    this.tweens.add({ targets: this.banner, alpha: 1, duration: 400 });
+    this.tweens.add({ targets: this.veil, alpha: 0.74, duration: 400 });
+    this.tweens.add({ targets: [this.panel, this.line], alpha: 1, duration: 400 });
     this.time.delayedCall(1400, () => {
+      this.tweens.add({ targets: this.veil, alpha: 0, duration: 400 });
       this.tweens.add({
-        targets: this.banner,
+        targets: [this.panel, this.line],
         alpha: 0,
         duration: 400,
         onComplete: () => {
+          this.hint.setVisible(true);
           this.mode = "fight";
           this.bossState = "chase";
           this.bossStateAt = this.time.now + 200;
