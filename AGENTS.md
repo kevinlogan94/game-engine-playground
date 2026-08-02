@@ -33,3 +33,7 @@ For terrain and area-building tilesets, use the latest Liberated Pixel Cup asset
 ## Prefer consolidated files (~500 lines)
 
 Optimize for Cursor performance by consolidating related code into fewer files of up to about 500 lines each. Prefer one well-sized file over many tiny (~100-line) files for the same concern. Split only when a file would meaningfully exceed ~500 lines or when scene colocation / separation of concerns clearly requires it.
+
+## Commit messages
+
+Prefix with a [gitmoji](https://gitmoji.dev/) shortcode, then a short message. Example: `:bug: fix idle animation drift`
