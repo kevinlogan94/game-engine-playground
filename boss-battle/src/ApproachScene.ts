@@ -84,15 +84,6 @@ export class ApproachScene extends Phaser.Scene {
       fog.fillStyle(0xe8eef6, 0.1 + i * 0.06);
       fog.fillEllipse(fogX, fogY + 8 + i * 4, 170 - i * 8, 88 - i * 5);
     }
-    this.add
-      .text(fogX, fogY - 56, "FOG GATE", {
-        fontFamily: "Georgia, serif",
-        fontSize: "16px",
-        color: "#e8eef6",
-      })
-      .setOrigin(0.5)
-      .setDepth(6)
-      .setAlpha(0.85);
 
     this.tweens.add({
       targets: fog,
