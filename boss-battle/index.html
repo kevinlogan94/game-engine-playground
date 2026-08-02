@@ -23,9 +23,84 @@
       #game canvas {
         display: block;
       }
+      #mobile-gate {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        text-align: center;
+        background: #0a0a0c;
+        font-family: Georgia, serif;
+        color: #f0e6d0;
+        overflow: hidden;
+      }
+      #mobile-gate.visible {
+        display: flex;
+      }
+      #mobile-gate .gate-title {
+        margin: 0 0 1.25rem;
+        font-size: clamp(2rem, 8vw, 3rem);
+        font-weight: normal;
+        letter-spacing: 0.08em;
+        color: #f0e6d0;
+      }
+      #mobile-gate .gate-rule {
+        width: 11rem;
+        height: 1px;
+        margin: 0 0 1.75rem;
+        background: linear-gradient(
+          to right,
+          transparent,
+          rgba(160, 24, 24, 0.65),
+          transparent
+        );
+      }
+      #mobile-gate .gate-message {
+        margin: 0;
+        font-size: clamp(0.85rem, 3.5vw, 0.95rem);
+        color: #b0a090;
+      }
+      #mobile-gate .gate-footer {
+        position: absolute;
+        bottom: 8%;
+        margin: 0;
+        font-size: 0.7rem;
+        color: #9aa3b2;
+        opacity: 0.45;
+      }
+      #mobile-gate .gate-ash {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      #mobile-gate .ash-dot {
+        position: absolute;
+        width: 2px;
+        height: 2px;
+        border-radius: 50%;
+        background: #e8dcc0;
+        opacity: 0.45;
+      }
+      #mobile-gate .gate-content {
+        position: relative;
+        z-index: 1;
+      }
     </style>
   </head>
   <body>
+    <div id="mobile-gate" aria-live="polite">
+      <div class="gate-ash" aria-hidden="true"></div>
+      <div class="gate-content">
+        <h1 class="gate-title">LORD OF ASH</h1>
+        <div class="gate-rule" aria-hidden="true"></div>
+        <p class="gate-message">Play on desktop</p>
+      </div>
+      <p class="gate-footer">A soul awaits</p>
+    </div>
     <div id="game"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
