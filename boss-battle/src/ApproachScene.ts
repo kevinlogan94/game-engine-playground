@@ -148,7 +148,7 @@ export class ApproachScene extends Phaser.Scene {
       this.facing = dirFromVector(vx, vy);
       this.player.anims.play(`p-walk-${this.facing}`, true);
     } else {
-      this.player.anims.play("p-idle", true);
+      this.player.anims.play(`p-idle-${this.facing}`, true);
     }
     this.player.setVelocity(vx * PLAYER.speed, vy * PLAYER.speed);
   }

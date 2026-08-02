@@ -87,11 +87,13 @@ export function createPlayerAnims(scene: Phaser.Scene) {
     makeAnim(scene, `p-slash-${dir}`, "p", "slash", dir, [5, 4, 3, 2, 1, 0], 12, 0);
     makeAnim(scene, `p-run-${dir}`, "p", "run", dir, CYCLE.run, 36, 0);
   }
-  if (!scene.anims.exists("p-idle")) {
-    scene.anims.create({
-      key: "p-idle",
-      frames: [{ key: frameKey("p", "walk", "down", 1) }],
-    });
+  for (const dir of DIRS) {
+    if (!scene.anims.exists(`p-idle-${dir}`)) {
+      scene.anims.create({
+        key: `p-idle-${dir}`,
+        frames: [{ key: frameKey("p", "walk", dir, 1) }],
+      });
+    }
   }
   if (!scene.anims.exists("p-hurt")) {
     scene.anims.create({

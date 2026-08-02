@@ -279,7 +279,7 @@ export class BossScene extends Phaser.Scene {
       this.player.setVelocity(vx * PLAYER.speed, vy * PLAYER.speed);
     } else {
       this.player.setVelocity(0, 0);
-      this.player.anims.play("p-idle", true);
+      this.player.anims.play(`p-idle-${this.facing}`, true);
     }
 
     if (
