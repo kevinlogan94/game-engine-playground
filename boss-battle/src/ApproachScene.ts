@@ -7,6 +7,7 @@ import {
   TILE,
   TILE_SCALE,
   dirFromVector,
+  facingOffset,
   type Dir,
 } from "./gameConfig";
 import {
@@ -25,7 +26,12 @@ export class ApproachScene extends Phaser.Scene {
   private walls!: Phaser.Physics.Arcade.StaticGroup;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
+  private keyAttack!: Phaser.Input.Keyboard.Key;
+  private keyDodge!: Phaser.Input.Keyboard.Key;
   private facing: Dir = "up";
+  private dodgeUntil = 0;
+  private dodgeReadyAt = 0;
+  private attackUntil = 0;
   private entered = false;
 
   constructor() {
@@ -43,6 +49,7 @@ export class ApproachScene extends Phaser.Scene {
   create() {
     this.entered = false;
     this.facing = "up";
+    this.dodgeUntil = this.dodgeReadyAt = this.attackUntil = 0;
     this.walls = this.physics.add.staticGroup();
 
     const cols = Math.ceil(GAME_W / TILE);
@@ -112,9 +119,19 @@ export class ApproachScene extends Phaser.Scene {
       string,
       Phaser.Input.Keyboard.Key
     >;
+    this.keyAttack = this.input.keyboard!.addKey(
+      Phaser.Input.Keyboard.KeyCodes.SPACE,
+    );
+    this.keyDodge = this.input.keyboard!.addKey(
+      Phaser.Input.Keyboard.KeyCodes.SHIFT,
+    );
 
     this.add
-      .text(GAME_W / 2, GAME_H - 18, "WASD / arrows — approach the fog gate", {
+      .text(
+        GAME_W / 2,
+        GAME_H - 18,
+        "WASD move · Space attack · Shift dodge · approach the fog gate",
+        {
         fontFamily: "Georgia, serif",
         fontSize: "14px",
         color: "#9aa3b2",
@@ -126,22 +143,49 @@ export class ApproachScene extends Phaser.Scene {
 
   update() {
     if (this.entered) return;
+
+    const now = this.time.now;
+    if (now < this.dodgeUntil) return;
+    if (now < this.attackUntil) return;
+
     let vx = 0;
     let vy = 0;
     if (this.cursors.left.isDown || this.wasd.A.isDown) vx -= 1;
     if (this.cursors.right.isDown || this.wasd.D.isDown) vx += 1;
     if (this.cursors.up.isDown || this.wasd.W.isDown) vy -= 1;
     if (this.cursors.down.isDown || this.wasd.S.isDown) vy += 1;
+
     if (vx || vy) {
       const len = Math.hypot(vx, vy);
       vx /= len;
       vy /= len;
       this.facing = dirFromVector(vx, vy);
       this.player.anims.play(`p-walk-${this.facing}`, true);
+      this.player.setVelocity(vx * PLAYER.speed, vy * PLAYER.speed);
     } else {
+      this.player.setVelocity(0, 0);
       this.player.anims.play(`p-idle-${this.facing}`, true);
     }
-    this.player.setVelocity(vx * PLAYER.speed, vy * PLAYER.speed);
+
+    if (
+      Phaser.Input.Keyboard.JustDown(this.keyDodge) &&
+      now >= this.dodgeReadyAt
+    ) {
+      const off = facingOffset(this.facing, 1);
+      this.player.anims.play(`p-run-${this.facing}`, true);
+      this.player.setVelocity(
+        (vx || off.x) * PLAYER.dodgeSpeed,
+        (vy || off.y) * PLAYER.dodgeSpeed,
+      );
+      this.dodgeUntil = now + PLAYER.dodgeMs;
+      this.dodgeReadyAt = now + PLAYER.dodgeCooldownMs;
+      this.player.setAlpha(0.45);
+      this.time.delayedCall(PLAYER.iFrameMs, () => this.player.setAlpha(1));
+    } else if (Phaser.Input.Keyboard.JustDown(this.keyAttack)) {
+      this.attackUntil = now + PLAYER.attackMs;
+      this.player.setVelocity(0, 0);
+      this.player.anims.play(`p-slash-${this.facing}`, true);
+    }
   }
 
   private enterFog() {
