@@ -24,7 +24,7 @@ export const PLAYER = {
 };
 
 export const BOSS = {
-  name: "LORD OF ASH",
+  name: "Ashen Lord",
   hp: 20,
   speed: 70,
   speedP2: 105,

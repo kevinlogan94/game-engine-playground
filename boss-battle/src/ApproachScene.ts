@@ -1,23 +1,27 @@
 import Phaser from "phaser";
 import {
   COBBLE,
-  DIRS,
   GAME_H,
   GAME_W,
   PLAYER,
-  SPRITE_SCALE,
   TILE,
   TILE_SCALE,
   dirFromVector,
   type Dir,
 } from "./gameConfig";
+import {
+  PLAYER_WALK_SCALE,
+  createPlayerAnims,
+  frameKey,
+  preloadLpcPlayer,
+  setPlayerWalkBody,
+} from "./lpcAssets";
 
 const ASSET = "assets/lpc";
 
 /** Outside the fog gate — walk north into the mist to begin. */
 export class ApproachScene extends Phaser.Scene {
   private player!: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
-  private pants!: Phaser.GameObjects.Sprite;
   private walls!: Phaser.Physics.Arcade.StaticGroup;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
@@ -33,14 +37,7 @@ export class ApproachScene extends Phaser.Scene {
       frameWidth: 32,
       frameHeight: 32,
     });
-    this.load.spritesheet("walk", `${ASSET}/sprites/male_walkcycle.png`, {
-      frameWidth: 64,
-      frameHeight: 64,
-    });
-    this.load.spritesheet("pants", `${ASSET}/sprites/male_pants.png`, {
-      frameWidth: 64,
-      frameHeight: 64,
-    });
+    preloadLpcPlayer(this);
   }
 
   create() {
@@ -105,20 +102,14 @@ export class ApproachScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    this.ensureAnims();
+    createPlayerAnims(this);
 
     this.player = this.physics.add
-      .sprite(GAME_W / 2, GAME_H - TILE * 2, "walk", 18)
-      .setScale(SPRITE_SCALE)
+      .sprite(GAME_W / 2, GAME_H - TILE * 2, frameKey("p", "walk", "down", 1))
+      .setScale(PLAYER_WALK_SCALE)
       .setDepth(4)
       .setCollideWorldBounds(true);
-    this.player.body.setSize(22, 28).setOffset(21, 28);
-
-    this.pants = this.add
-      .sprite(this.player.x, this.player.y, "pants", 18)
-      .setScale(SPRITE_SCALE)
-      .setDepth(5)
-      .setTint(0x3a4558);
+    setPlayerWalkBody(this.player);
 
     this.physics.add.collider(this.player, this.walls);
 
@@ -143,30 +134,6 @@ export class ApproachScene extends Phaser.Scene {
       .setDepth(20);
   }
 
-  private ensureAnims() {
-    if (!this.anims.exists("p-idle")) {
-      this.anims.create({
-        key: "p-idle",
-        frames: [{ key: "walk", frame: 18 }],
-        frameRate: 1,
-      });
-    }
-    for (let i = 0; i < DIRS.length; i++) {
-      const dir = DIRS[i]!;
-      const key = `p-walk-${dir}`;
-      if (this.anims.exists(key)) continue;
-      this.anims.create({
-        key,
-        frames: this.anims.generateFrameNumbers("walk", {
-          start: i * 9 + 1,
-          end: i * 9 + 8,
-        }),
-        frameRate: 10,
-        repeat: -1,
-      });
-    }
-  }
-
   update() {
     if (this.entered) return;
     let vx = 0;
@@ -185,8 +152,6 @@ export class ApproachScene extends Phaser.Scene {
       this.player.anims.play("p-idle", true);
     }
     this.player.setVelocity(vx * PLAYER.speed, vy * PLAYER.speed);
-    this.pants.setPosition(this.player.x, this.player.y);
-    this.pants.setFrame(this.player.frame.name);
   }
 
   private enterFog() {
