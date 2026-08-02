@@ -10,11 +10,11 @@ import {
   type Dir,
 } from "./gameConfig";
 import {
-  PLAYER_WALK_SCALE,
+  attachLpcSprite,
   createPlayerAnims,
   frameKey,
+  PLAYER_DISPLAY,
   preloadLpcPlayer,
-  setPlayerWalkBody,
 } from "./lpcAssets";
 
 const ASSET = "assets/lpc";
@@ -105,11 +105,10 @@ export class ApproachScene extends Phaser.Scene {
     createPlayerAnims(this);
 
     this.player = this.physics.add
-      .sprite(GAME_W / 2, GAME_H - TILE * 2, frameKey("p", "walk", "down", 1))
-      .setScale(PLAYER_WALK_SCALE)
+      .sprite(GAME_W / 2, GAME_H - TILE * 2 + 48, frameKey("p", "walk", "down", 1))
       .setDepth(4)
       .setCollideWorldBounds(true);
-    setPlayerWalkBody(this.player);
+    attachLpcSprite(this.player, PLAYER_DISPLAY, 33, 42);
 
     this.physics.add.collider(this.player, this.walls);
 

@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import {
   ARENA_FLOOR,
   BOSS,
-  BOSS_SCALE,
   COBBLE,
   GAME_H,
   GAME_W,
@@ -14,19 +13,15 @@ import {
   type Dir,
 } from "./gameConfig";
 import {
-  BOSS_ATTACK_SCALE,
-  PLAYER_RUN_SCALE,
-  PLAYER_WALK_SCALE,
+  attachLpcSprite,
+  BOSS_DISPLAY,
   bossFacingToward,
   createBossAnims,
   createPlayerAnims,
   frameKey,
+  PLAYER_DISPLAY,
   preloadLpcBoss,
   preloadLpcPlayer,
-  setBossAttackBody,
-  setBossWalkBody,
-  setPlayerRunBody,
-  setPlayerWalkBody,
 } from "./lpcAssets";
 
 const ASSET = "assets/lpc";
@@ -100,18 +95,16 @@ export class BossScene extends Phaser.Scene {
     createBossAnims(this);
 
     this.player = this.physics.add
-      .sprite(GAME_W / 2, GAME_H - TILE * 2.2, frameKey("p", "walk", "down", 1))
-      .setScale(PLAYER_WALK_SCALE)
+      .sprite(GAME_W / 2, GAME_H - TILE * 2.2 + 48, frameKey("p", "walk", "down", 1))
       .setDepth(4)
       .setCollideWorldBounds(true);
-    setPlayerWalkBody(this.player);
+    attachLpcSprite(this.player, PLAYER_DISPLAY, 33, 42);
 
     this.boss = this.physics.add
-      .sprite(GAME_W / 2, TILE * 3.2, frameKey("b", "walk", "down", 1))
-      .setScale(BOSS_SCALE)
+      .sprite(GAME_W / 2, TILE * 3.2 + 77, frameKey("b", "walk", "down", 1))
       .setDepth(4)
       .setImmovable(true);
-    setBossWalkBody(this.boss);
+    attachLpcSprite(this.boss, BOSS_DISPLAY, 82, 96);
 
     this.physics.add.collider(this.player, this.walls);
     this.physics.add.collider(this.boss, this.walls);
@@ -265,26 +258,6 @@ export class BossScene extends Phaser.Scene {
     this.updateBoss();
   }
 
-  private setPlayerWalkMode() {
-    this.player.setScale(PLAYER_WALK_SCALE);
-    setPlayerWalkBody(this.player);
-  }
-
-  private setPlayerRunMode() {
-    this.player.setScale(PLAYER_RUN_SCALE);
-    setPlayerRunBody(this.player);
-  }
-
-  private setBossWalkMode() {
-    this.boss.setScale(BOSS_SCALE);
-    setBossWalkBody(this.boss);
-  }
-
-  private setBossAttackMode() {
-    this.boss.setScale(BOSS_ATTACK_SCALE);
-    setBossAttackBody(this.boss);
-  }
-
   private updatePlayer() {
     const now = this.time.now;
     if (now < this.dodgeUntil) return;
@@ -296,8 +269,6 @@ export class BossScene extends Phaser.Scene {
     if (this.cursors.right.isDown || this.wasd.D.isDown) vx += 1;
     if (this.cursors.up.isDown || this.wasd.W.isDown) vy -= 1;
     if (this.cursors.down.isDown || this.wasd.S.isDown) vy += 1;
-
-    this.setPlayerWalkMode();
 
     if (vx || vy) {
       const len = Math.hypot(vx, vy);
@@ -316,7 +287,6 @@ export class BossScene extends Phaser.Scene {
       now >= this.dodgeReadyAt
     ) {
       const off = facingOffset(this.facing, 1);
-      this.setPlayerRunMode();
       this.player.anims.play(`p-run-${this.facing}`, true);
       this.player.setVelocity(
         (vx || off.x) * PLAYER.dodgeSpeed,
@@ -326,14 +296,13 @@ export class BossScene extends Phaser.Scene {
       this.dodgeReadyAt = now + PLAYER.dodgeCooldownMs;
       this.invulnUntil = now + PLAYER.iFrameMs;
       this.player.setAlpha(0.45);
-      this.time.delayedCall(PLAYER.dodgeMs, () => this.setPlayerWalkMode());
       this.time.delayedCall(PLAYER.iFrameMs, () => this.player.setAlpha(1));
     } else if (Phaser.Input.Keyboard.JustDown(this.keyAttack)) {
       this.attackUntil = now + PLAYER.attackMs;
       this.player.setVelocity(0, 0);
       this.player.anims.play(`p-slash-${this.facing}`, true);
       const off = facingOffset(this.facing, PLAYER.attackReach);
-      const bossR = 28 * BOSS_SCALE * 0.45;
+      const bossR = 28 * 2.4 * 0.45;
       if (
         Math.hypot(this.boss.x - (this.player.x + off.x), this.boss.y - (this.player.y + off.y)) <
         bossR + 22
@@ -364,7 +333,6 @@ export class BossScene extends Phaser.Scene {
     this.boss.setVelocity(0, 0);
     this.player.setVelocity(0, 0);
     this.telegraph.setVisible(false);
-    this.setBossWalkMode();
     this.boss.setTint(0xff6655);
     this.banner.setText("SECOND FORM").setAlpha(0);
     this.cameras.main.flash(400, 180, 40, 20);
@@ -401,7 +369,6 @@ export class BossScene extends Phaser.Scene {
       const dx = this.player.x - this.boss.x;
       const dy = this.player.y - this.boss.y;
       const dist = Math.hypot(dx, dy) || 1;
-      this.setBossWalkMode();
       this.boss.setVelocity((dx / dist) * speed, (dy / dist) * speed);
       this.boss.anims.play(walkKey, true);
       if (now >= this.bossStateAt) {
@@ -418,7 +385,6 @@ export class BossScene extends Phaser.Scene {
         this.showTelegraph();
       }
     } else if (this.bossState === "windup") {
-      this.setBossWalkMode();
       this.boss.setVelocity(0, 0);
       this.boss.anims.play(idleKey, true);
       this.showTelegraph();
@@ -430,7 +396,6 @@ export class BossScene extends Phaser.Scene {
       }
     } else if (this.bossState === "strike") {
       if (this.bossAttack === "charge") {
-        this.setBossWalkMode();
         this.boss.setVelocity(
           this.chargeDir.x * speed * 3.2,
           this.chargeDir.y * speed * 3.2,
@@ -442,7 +407,6 @@ export class BossScene extends Phaser.Scene {
           this.hurtPlayer();
         }
       } else {
-        this.setBossAttackMode();
         const atkKey =
           this.bossAttack === "slam"
             ? `b-thrust-${this.bossFacing}`
@@ -455,10 +419,8 @@ export class BossScene extends Phaser.Scene {
         this.bossState = "recover";
         this.bossStateAt = now + recover;
         this.boss.setVelocity(0, 0);
-        this.setBossWalkMode();
       }
     } else if (this.bossState === "recover") {
-      this.setBossWalkMode();
       this.boss.setVelocity(0, 0);
       this.boss.anims.play(idleKey, true);
       if (now >= this.bossStateAt) {
@@ -533,7 +495,6 @@ export class BossScene extends Phaser.Scene {
       if (this.phase === 2) {
         this.time.delayedCall(200, () => {
           if (this.mode !== "fight") return;
-          this.setBossAttackMode();
           this.boss.anims.play(`b-slash-reverse-${this.bossFacing}`, true);
           if (
             Math.hypot(this.player.x - this.boss.x, this.player.y - this.boss.y) <
@@ -569,7 +530,6 @@ export class BossScene extends Phaser.Scene {
     this.mode = "dead";
     this.telegraph.setVisible(false);
     this.player.setVelocity(0, 0);
-    this.setPlayerWalkMode();
     this.player.anims.play("p-hurt");
     this.player.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
       this.player.anims.stop();
@@ -582,7 +542,6 @@ export class BossScene extends Phaser.Scene {
     this.mode = "won";
     this.telegraph.setVisible(false);
     this.boss.setVelocity(0, 0);
-    this.setBossWalkMode();
     this.boss.anims.play("b-hurt");
     this.boss.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
       this.boss.anims.stop();

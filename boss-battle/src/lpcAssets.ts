@@ -1,11 +1,21 @@
 import Phaser from "phaser";
-import { BOSS_SCALE, DIRS, type Dir } from "./gameConfig";
+import { BOSS_SCALE, DIRS, SPRITE_SCALE, type Dir } from "./gameConfig";
 
 const ASSET = "assets/lpc";
 
-export const PLAYER_WALK_SCALE = 0.75; // 128px frames → ~96px on screen
-export const PLAYER_RUN_SCALE = 1.5; // 64px run frames
-export const BOSS_ATTACK_SCALE = BOSS_SCALE * (64 / 192);
+/** Target on-screen width for a 64px LPC frame */
+export const PLAYER_DISPLAY = 64 * SPRITE_SCALE;
+export const BOSS_DISPLAY = 64 * BOSS_SCALE;
+
+/** Spritesheet frame indices (0-based); PNG file = index + 1 */
+const CYCLE = {
+  walk: [1, 2, 3, 4, 5, 6, 7, 8],
+  slash: [0, 1, 2, 3, 4, 5],
+  run: [0, 1, 2, 3, 4, 5, 6, 7],
+  thrust: [0, 1, 2, 3, 4, 5, 6, 7],
+  idle: [0, 0, 1],
+  hurt: [0, 1, 2, 3, 4, 5],
+} as const;
 
 export function frameKey(prefix: string, anim: string, dir: string, i: number) {
   return `${prefix}-${anim}-${dir}-${i}`;
@@ -48,22 +58,24 @@ export function preloadLpcBoss(scene: Phaser.Scene) {
   }
 }
 
+function cycleFrames(prefix: string, anim: string, dir: Dir, cycle: readonly number[]) {
+  return cycle.map((i) => ({ key: frameKey(prefix, anim, dir, i + 1) }));
+}
+
 function makeAnim(
   scene: Phaser.Scene,
   key: string,
   prefix: string,
   anim: string,
   dir: Dir,
-  n: number,
+  cycle: readonly number[],
   frameRate: number,
   repeat: number,
 ) {
   if (scene.anims.exists(key)) return;
   scene.anims.create({
     key,
-    frames: Array.from({ length: n }, (_, i) => ({
-      key: frameKey(prefix, anim, dir, i + 1),
-    })),
+    frames: cycleFrames(prefix, anim, dir, cycle),
     frameRate,
     repeat,
   });
@@ -71,9 +83,9 @@ function makeAnim(
 
 export function createPlayerAnims(scene: Phaser.Scene) {
   for (const dir of DIRS) {
-    makeAnim(scene, `p-walk-${dir}`, "p", "walk", dir, 9, 10, -1);
-    makeAnim(scene, `p-slash-${dir}`, "p", "slash", dir, 6, 12, 0);
-    makeAnim(scene, `p-run-${dir}`, "p", "run", dir, 8, 36, 0);
+    makeAnim(scene, `p-walk-${dir}`, "p", "walk", dir, CYCLE.walk, 10, -1);
+    makeAnim(scene, `p-slash-${dir}`, "p", "slash", dir, [5, 4, 3, 2, 1, 0], 12, 0);
+    makeAnim(scene, `p-run-${dir}`, "p", "run", dir, CYCLE.run, 36, 0);
   }
   if (!scene.anims.exists("p-idle")) {
     scene.anims.create({
@@ -84,9 +96,7 @@ export function createPlayerAnims(scene: Phaser.Scene) {
   if (!scene.anims.exists("p-hurt")) {
     scene.anims.create({
       key: "p-hurt",
-      frames: Array.from({ length: 6 }, (_, i) => ({
-        key: frameKey("p", "hurt", "up", i + 1),
-      })),
+      frames: cycleFrames("p", "hurt", "up", CYCLE.hurt),
       frameRate: 10,
       repeat: 0,
     });
@@ -95,38 +105,48 @@ export function createPlayerAnims(scene: Phaser.Scene) {
 
 export function createBossAnims(scene: Phaser.Scene) {
   for (const dir of DIRS) {
-    makeAnim(scene, `b-walk-${dir}`, "b", "walk", dir, 9, 10, -1);
-    makeAnim(scene, `b-idle-${dir}`, "b", "idle", dir, 2, 3, -1);
-    makeAnim(scene, `b-slash-${dir}`, "b", "slash", dir, 6, 12, 0);
-    makeAnim(scene, `b-slash-reverse-${dir}`, "b", "slash-reverse", dir, 6, 12, 0);
-    makeAnim(scene, `b-thrust-${dir}`, "b", "thrust", dir, 8, 14, 0);
+    makeAnim(scene, `b-walk-${dir}`, "b", "walk", dir, CYCLE.walk, 10, -1);
+    makeAnim(scene, `b-idle-${dir}`, "b", "idle", dir, CYCLE.idle, 3, -1);
+    makeAnim(scene, `b-slash-${dir}`, "b", "slash", dir, CYCLE.slash, 12, 0);
+    makeAnim(scene, `b-slash-reverse-${dir}`, "b", "slash-reverse", dir, CYCLE.slash, 12, 0);
+    makeAnim(scene, `b-thrust-${dir}`, "b", "thrust", dir, CYCLE.thrust, 14, 0);
   }
   if (!scene.anims.exists("b-hurt")) {
     scene.anims.create({
       key: "b-hurt",
-      frames: Array.from({ length: 6 }, (_, i) => ({
-        key: frameKey("b", "hurt", "up", i + 1),
-      })),
+      frames: cycleFrames("b", "hurt", "up", CYCLE.hurt),
       frameRate: 10,
       repeat: 0,
     });
   }
 }
 
-export function setPlayerWalkBody(sprite: Phaser.Physics.Arcade.Sprite) {
-  sprite.body!.setSize(44, 56).setOffset(42, 56);
-}
+/** LPC base frame; oversize canvases center the same art in a larger pad */
+const LPC_BASE = 64;
 
-export function setPlayerRunBody(sprite: Phaser.Physics.Arcade.Sprite) {
-  sprite.body!.setSize(22, 28).setOffset(21, 28);
-}
-
-export function setBossWalkBody(sprite: Phaser.Physics.Arcade.Sprite) {
-  sprite.body!.setSize(34, 40).setOffset(15, 22);
-}
-
-export function setBossAttackBody(sprite: Phaser.Physics.Arcade.Sprite) {
-  sprite.body!.setSize(34, 40).setOffset(79, 118);
+/** Keep constant on-screen size + feet anchored as frame canvas changes */
+export function attachLpcSprite(
+  sprite: Phaser.Physics.Arcade.Sprite,
+  displayW: number,
+  bodyW: number,
+  bodyH: number,
+) {
+  // Scale from base art size, not canvas width (128/192 frames are padded, not bigger)
+  const s = displayW / LPC_BASE;
+  sprite.setScale(s);
+  const fit = () => {
+    const fw = sprite.frame.width;
+    const fh = sprite.frame.height;
+    // Character sits in the centered LPC_BASE×LPC_BASE region
+    const feetY = (fh + LPC_BASE) / 2;
+    sprite.setOrigin(0.5, feetY / fh);
+    const bw = bodyW / s;
+    const bh = bodyH / s;
+    sprite.body!.setSize(bw, bh).setOffset((fw - bw) / 2, feetY - bh);
+  };
+  sprite.on(Phaser.Animations.Events.ANIMATION_START, fit);
+  sprite.on(Phaser.Animations.Events.ANIMATION_UPDATE, fit);
+  fit();
 }
 
 export function bossFacingToward(bx: number, by: number, px: number, py: number): Dir {
