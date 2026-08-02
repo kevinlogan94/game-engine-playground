@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { ApproachScene } from "./ApproachScene";
 import { BossScene } from "./BossScene";
+import { TitleScene } from "./TitleScene";
 import { GAME_H, GAME_W } from "./gameConfig";
 
 new Phaser.Game({
@@ -18,5 +19,5 @@ new Phaser.Game({
     default: "arcade",
     arcade: { gravity: { x: 0, y: 0 }, debug: false },
   },
-  scene: [ApproachScene, BossScene],
+  scene: [TitleScene, ApproachScene, BossScene],
 });
